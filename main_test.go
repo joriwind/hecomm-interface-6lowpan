@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRcvPacket(t *testing.T) {
+/* func TestRcvPacket(t *testing.T) {
 	cases := []struct {
 	}{
 		{},
@@ -28,7 +28,7 @@ func TestRcvPacket(t *testing.T) {
 			t.Errorf("Did not exit Read properly %v, %v", err, c)
 		}
 	}
-}
+} */
 
 func TestClose(t *testing.T) {
 	cases := []struct {
@@ -37,7 +37,7 @@ func TestClose(t *testing.T) {
 	}
 	for _, c := range cases {
 		config := Config{
-			DebugLevel: DebugPacket,
+			DebugLevel: DebugAll,
 			PortName:   "/dev/ttyUSB1",
 		}
 		buf := make([]byte, 20)
@@ -51,6 +51,33 @@ func TestClose(t *testing.T) {
 		_, err = reader.Read(buf)
 		if err == nil {
 			t.Errorf("Did not Close properly %v, %v", err, c)
+		}
+	}
+}
+
+func TestContinuous(t *testing.T) {
+	cases := []struct {
+	}{
+		{},
+	}
+	for _, c := range cases {
+		config := Config{
+			DebugLevel: DebugAll,
+			PortName:   "/dev/ttyUSB1",
+		}
+		buf := make([]byte, 200)
+		reader, err := Open(config)
+		defer reader.Close()
+
+		if err != nil {
+			t.Errorf("Did not exit Open properly %v\n", err)
+		}
+		for {
+			n, err := reader.Read(buf)
+			if err != nil {
+				t.Errorf("Did not exit Read properly %v, %v", err, c)
+			}
+			fmt.Printf("Packet: %v\n", string(buf[:n]))
 		}
 	}
 }
