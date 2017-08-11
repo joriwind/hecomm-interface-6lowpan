@@ -1,6 +1,7 @@
 package sixlowpan
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -14,14 +15,15 @@ func TestRcvPacket(t *testing.T) {
 			DebugLevel: DebugPacket,
 			PortName:   "/dev/ttyUSB1",
 		}
-		buf := make([]byte, 20)
+		buf := make([]byte, 200)
 		reader, err := Open(config)
 		defer reader.Close()
 
 		if err != nil {
 			t.Errorf("Did not exit Open properly %v\n", err)
 		}
-		_, err = reader.Read(buf)
+		n, err := reader.Read(buf)
+		fmt.Printf("Packet: %v", string(buf[:n]))
 		if err != nil {
 			t.Errorf("Did not exit Read properly %v, %v", err, c)
 		}

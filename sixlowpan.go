@@ -37,6 +37,7 @@ type SLIP struct {
 func Open(config Config) (com io.ReadWriteCloser, err error) {
 	log.Println("Opening serial hecomm SLIP port...")
 	sl := SLIP{}
+	sl.config = config
 	//Serial setup
 	//To use github.com/jacobsa/go-serial/serial or go.bug.st/serial.v1
 	options := serial.OpenOptions{
@@ -78,6 +79,9 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 		default:
 			if com.config.DebugLevel >= DebugPacket {
 				fmt.Printf("SLIP Packet: %v, isPrefix: %v\n", packet, isPrefix)
+			}
+			if len(buf) < len(packet) {
+				return 0, fmt.Errorf("Buf to small")
 			}
 			copy(buf, packet)
 			return len(packet), nil
