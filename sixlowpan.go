@@ -2,8 +2,8 @@
 package sixlowpan
 
 import (
-	"context"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/Lobaro/slip"
@@ -25,9 +25,18 @@ type Config struct {
 	PortName   string
 }
 
-//Start start
-func Start(ctx context.Context, config Config, packetChannel chan []byte) int {
-	log.Println("Start of 6LoWPAN interface!")
+//SLIP The struct of sixlowpan slip node, io readwritecloser
+type SLIP struct {
+	config    Config
+	serial    io.ReadWriteCloser
+	slipread  *slip.Reader
+	slipwrite *slip.Writer
+}
+
+//Open interface up to sixlowpan SLIP
+func Open(config Config) (com io.ReadWriteCloser, err error) {
+	log.Println("Opening serial hecomm SLIP port...")
+	sl := SLIP{}
 	//Serial setup
 	//To use github.com/jacobsa/go-serial/serial or go.bug.st/serial.v1
 	options := serial.OpenOptions{
@@ -40,41 +49,53 @@ func Start(ctx context.Context, config Config, packetChannel chan []byte) int {
 
 	port, err := serial.Open(options)
 	if err != nil {
-		log.Fatalf("serial.Open: %v", err)
+		return com, err
 	}
-	defer port.Close()
+	sl.serial = port
 
-	reader := slip.NewReader(port)
+	//reader := slip.NewReader(port)
+	sl.slipread = slip.NewReader(port)
+	sl.slipwrite = slip.NewWriter(port)
 
+	return sl, err
+}
+
+//Read Read until next packet received
+func (com SLIP) Read(buf []byte) (n int, err error) {
 	for {
-		packet, isPrefix, err := reader.ReadPacket()
+		packet, isPrefix, err := com.slipread.ReadPacket()
 		if err != nil {
-			log.Fatalf("6LoWPAN interface: Error in reading SLIP: %v", err)
+			return 0, err
 		}
 		switch packet[0] {
 		//Case of \r --> receiving debug lines through slip
 		case 0x0D:
-			if config.DebugLevel >= DebugAll {
+			if com.config.DebugLevel >= DebugAll {
 				fmt.Printf(string(packet))
 			}
 
 		//No special first character --> receiving payload packets
 		default:
-			if config.DebugLevel >= DebugPacket {
+			if com.config.DebugLevel >= DebugPacket {
 				fmt.Printf("SLIP Packet: %v, isPrefix: %v\n", packet, isPrefix)
 			}
-			packetChannel <- packet
-		}
-
-		select {
-		case <-ctx.Done():
-			return 0
-		default:
+			copy(buf, packet)
+			return len(packet), nil
 		}
 	}
-
 }
 
-func main() {
-	fmt.Println("Hello")
+//Write	Write a packet over sixlowpan SLIP
+func (com SLIP) Write(p []byte) (n int, err error) {
+	err = com.slipwrite.WritePacket(p)
+	if err != nil {
+		return 0, err
+	}
+	return len(p), err
+}
+
+//Close Close the connection
+func (com SLIP) Close() error {
+	err := com.serial.Close()
+	return err
 }

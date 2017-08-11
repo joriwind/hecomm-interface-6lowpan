@@ -1,11 +1,10 @@
 package sixlowpan
 
 import (
-	"context"
 	"testing"
 )
 
-func TestMain(t *testing.T) {
+func TestRcvPacket(t *testing.T) {
 	cases := []struct {
 	}{
 		{},
@@ -15,23 +14,41 @@ func TestMain(t *testing.T) {
 			DebugLevel: DebugPacket,
 			PortName:   "/dev/ttyUSB1",
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		channel := make(chan []byte, 5)
-		var got int
-		go func() {
-			got = Start(ctx, config, channel)
-			if got != 0 {
-				cancel()
-			}
-		}()
-		select {
-		case <-channel:
-			cancel()
-		case <-ctx.Done():
+		buf := make([]byte, 20)
+		reader, err := Open(config)
+		defer reader.Close()
 
+		if err != nil {
+			t.Errorf("Did not exit Open properly %v\n", err)
 		}
-		if got != 0 {
-			t.Errorf("Did not exit properly %v, input: %v", got, c)
+		_, err = reader.Read(buf)
+		if err != nil {
+			t.Errorf("Did not exit Read properly %v, %v", err, c)
+		}
+	}
+}
+
+func TestClose(t *testing.T) {
+	cases := []struct {
+	}{
+		{},
+	}
+	for _, c := range cases {
+		config := Config{
+			DebugLevel: DebugPacket,
+			PortName:   "/dev/ttyUSB1",
+		}
+		buf := make([]byte, 20)
+		reader, err := Open(config)
+		if err != nil {
+			t.Errorf("Did not exit Open properly %v\n", err)
+		}
+
+		reader.Close()
+
+		_, err = reader.Read(buf)
+		if err == nil {
+			t.Errorf("Did not Close properly %v, %v", err, c)
 		}
 	}
 }
