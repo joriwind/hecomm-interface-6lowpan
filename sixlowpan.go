@@ -72,7 +72,7 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 		//Case of \r --> receiving debug lines through slip
 		case 0x0D:
 			if com.config.DebugLevel >= DebugAll {
-				fmt.Printf(string(packet))
+				fmt.Printf("Debug packet: %v, isPrefix: %v\n", string(packet), isPrefix)
 			}
 
 		//No special first character --> receiving payload packets
