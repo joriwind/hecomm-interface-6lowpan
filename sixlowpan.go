@@ -63,7 +63,8 @@ func Open(config Config) (com io.ReadWriteCloser, err error) {
 	return sl, err
 }
 
-const udpHeaderLen = 8
+//UdpHeaderLen The length of a standard UDP header is 8 bytes
+const UdpHeaderLen = 8
 
 //Read Read until next packet received
 func (com SLIP) Read(buf []byte) (n int, err error) {
@@ -82,10 +83,10 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 		//No special first character --> receiving payload packets
 		default:
 			if com.config.DebugLevel >= DebugPacket {
-				if len(packet) < (ipv6.HeaderLen + udpHeaderLen) {
+				if len(packet) < (ipv6.HeaderLen + UdpHeaderLen) {
 					log.Fatalln("Packet to small to fit ipv6 + udp header!!")
 				}
-				fmt.Printf("SLIP Packet payload: %v, isPrefix: %v\n", packet[ipv6.HeaderLen+udpHeaderLen:], isPrefix)
+				fmt.Printf("SLIP Packet payload: %v, isPrefix: %v\n", packet[ipv6.HeaderLen+UdpHeaderLen:], isPrefix)
 				header, err := ipv6.ParseHeader(packet[:ipv6.HeaderLen])
 				if err != nil {
 					fmt.Printf("Error in processing ipv6 header\n")
@@ -96,8 +97,8 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 			if len(buf) < len(packet) {
 				return 0, fmt.Errorf("Buf to small")
 			}
-			copy(buf, packet[ipv6.HeaderLen+udpHeaderLen:])
-			return len(packet) - (ipv6.HeaderLen + udpHeaderLen), nil
+			copy(buf, packet[ipv6.HeaderLen+UdpHeaderLen:])
+			return len(packet) - (ipv6.HeaderLen + UdpHeaderLen), nil
 		}
 	}
 }
