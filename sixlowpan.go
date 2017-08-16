@@ -111,8 +111,8 @@ func (com SLIP) Write(p []byte) (n int, err error) {
 	return len(p), err
 }
 
-//marschal Compile the ipv6 packet
-func marschal(h ipv6.Header, p []byte) (b []byte, err error) {
+//Marschal Compile the ipv6 packet
+func Marschal(h ipv6.Header, p []byte) (b []byte, err error) {
 	if h.PayloadLen != len(p) {
 		return b, fmt.Errorf("PayloadLen and payload parameter does not match")
 	}
