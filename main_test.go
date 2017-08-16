@@ -8,6 +8,7 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
+//TestRcvPacket Try to receive a packet via udp-slip connection
 /* func TestRcvPacket(t *testing.T) {
 	cases := []struct {
 	}{
@@ -33,6 +34,7 @@ import (
 	}
 } */
 
+//Test closing the connection
 func TestClose(t *testing.T) {
 	cases := []struct {
 	}{
@@ -58,6 +60,7 @@ func TestClose(t *testing.T) {
 	}
 }
 
+//TestContinuous Test the continuous working of connection to udp-slip device
 func TestContinuous(t *testing.T) {
 	cases := []struct {
 	}{
@@ -85,6 +88,7 @@ func TestContinuous(t *testing.T) {
 	}
 }
 
+//TestIPPacket Test the marshalling of IP packet with fixed payload
 func TestIPPacket(t *testing.T) {
 	h := &ipv6.Header{
 		Version:      6,
@@ -116,6 +120,7 @@ func TestIPPacket(t *testing.T) {
 	}
 }
 
+//TestUDPPacket Test the Marshalling of UDP packet
 func TestUDPPacket(t *testing.T) {
 	h := &ipv6.Header{
 		Version:      6,
@@ -124,8 +129,8 @@ func TestUDPPacket(t *testing.T) {
 		PayloadLen:   0x001e,
 		NextHeader:   17,
 		HopLimit:     63,
-		Dst:          net.ParseIP("aaaa::c30c:0:0:7"),
-		Src:          net.ParseIP("aaaa::1"),
+		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Dst:          net.ParseIP("aaaa::1"),
 	}
 	uHdr := &UDPHeader{
 		DstPort: 0xb25f,
@@ -170,6 +175,7 @@ func TestUDPPacket(t *testing.T) {
 	}
 }
 
+//TestIpUDPPacket Test the full range of UDP to IP to bytes working
 func TestIPUDPPacket(t *testing.T) {
 	h := &ipv6.Header{
 		Version:      6,
