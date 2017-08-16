@@ -34,6 +34,66 @@ import (
 	}
 } */
 
+//TestSndPacket Try to receive a packet via udp-slip connection
+func TestSndPacket(t *testing.T) {
+	payload := []byte{0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21}
+	ipHdr := &ipv6.Header{
+		Version:      6,
+		TrafficClass: 0,
+		FlowLabel:    0,
+		PayloadLen:   len(payload) + UdpHeaderLen,
+		NextHeader:   17,
+		HopLimit:     63,
+		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Dst:          net.ParseIP("aaaa::1"),
+	}
+
+	udpHdr := &UDPHeader{
+		DstPort: 0xb25f,
+		SrcPort: 0x1633,
+		Length:  uint16(len(payload) + UdpHeaderLen),
+		Chksum:  0,
+		Payload: payload,
+	}
+
+	err := udpHdr.CalcChecksum(ipHdr)
+	if err != nil {
+		t.Errorf("Something went wrong in calculating checksum UDP packet: ipHdr %v, udpHdr: %v, error: %v\n", ipHdr, udpHdr, err)
+	}
+	udpb, err := udpHdr.Marschal()
+	if err != nil {
+		t.Errorf("Something went wrong in marshalling UDP packet: ipHdr %v, udpHdr: %v, error: %v\n", ipHdr, udpHdr, err)
+	}
+
+	fullIP, err := Marschal(*ipHdr, udpb)
+	if err != nil {
+		t.Errorf("Something went wrong in marshalling IP packet: ipHdr %v, udpbytes: %v, error: %v\n", ipHdr, udpb, err)
+	}
+
+	cases := []struct {
+		input []byte
+	}{
+		{input: fullIP},
+	}
+	for _, c := range cases {
+		config := Config{
+			DebugLevel: DebugAll,
+			PortName:   "/dev/ttyUSB1",
+		}
+		writer, err := Open(config)
+		defer writer.Close()
+
+		if err != nil {
+			t.Errorf("Did not exit Open properly %v\n", err)
+		}
+		n, err := writer.Write(c.input)
+		if err != nil {
+			t.Errorf("Did not exit Write properly %v, %v\n", err, c)
+		}
+		fmt.Printf("Written: n: %v, input: %x\n", n, c.input)
+	}
+}
+
 //Test closing the connection
 func TestClose(t *testing.T) {
 	cases := []struct {
@@ -61,7 +121,7 @@ func TestClose(t *testing.T) {
 }
 
 //TestContinuous Test the continuous working of connection to udp-slip device
-func TestContinuous(t *testing.T) {
+/* func TestContinuous(t *testing.T) {
 	cases := []struct {
 	}{
 		{},
@@ -86,7 +146,7 @@ func TestContinuous(t *testing.T) {
 			fmt.Printf("Packet: %v\n", string(buf[:n]))
 		}
 	}
-}
+} */
 
 //TestIPPacket Test the marshalling of IP packet with fixed payload
 func TestIPPacket(t *testing.T) {
@@ -115,7 +175,7 @@ func TestIPPacket(t *testing.T) {
 		if err != nil {
 			t.Errorf("Something went wrong in marshalling IP packet: case %v, result: %x, error: %v\n", c, b, err)
 		}
-		fmt.Printf("Case: %v, result: %x\n", c, b)
+		//fmt.Printf("Case: %v, result: %x\n", c, b)
 
 	}
 }
@@ -170,7 +230,7 @@ func TestUDPPacket(t *testing.T) {
 				}
 			}
 		}
-		fmt.Printf("Succesful:: Case: %v, result: %x\n", c, b)
+		//fmt.Printf("Succesful:: Case: %v, result: %x\n", c, b)
 
 	}
 }
@@ -235,7 +295,7 @@ func TestIPUDPPacket(t *testing.T) {
 				}
 			}
 		}
-		fmt.Printf("Succesful:: Case: %v, result: %x\n", c, fullIP)
+		//fmt.Printf("Succesful:: Case: %v, result: %x\n", c, fullIP)
 
 	}
 }
