@@ -169,3 +169,67 @@ func TestUDPPacket(t *testing.T) {
 
 	}
 }
+
+func TestIPUDPPacket(t *testing.T) {
+	h := &ipv6.Header{
+		Version:      6,
+		TrafficClass: 0,
+		FlowLabel:    0,
+		PayloadLen:   0x001e,
+		NextHeader:   17,
+		HopLimit:     63,
+		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Dst:          net.ParseIP("aaaa::1"),
+	}
+	uHdr := &UDPHeader{
+		DstPort: 0xb25f,
+		SrcPort: 0x1633,
+		Length:  0x001e,
+		Chksum:  0,
+		Payload: []byte{0x60, 0x45, 0x22, 0xa6, 0x41, 0x0c, 0x80, 0xb1, 0x02, 0xff, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21},
+	}
+
+	cases := []struct {
+		header *ipv6.Header
+		udpHdr *UDPHeader
+		result []byte
+	}{
+		{
+			header: h,
+			udpHdr: uHdr,
+			result: []byte{
+				0x60, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x11, 0x3f,
+				0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc3, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07,
+				0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+				0x16, 0x33, 0xb2, 0x5f, 0x00, 0x1e, 0x85, 0x1e,
+				0x60, 0x45, 0x22, 0xa6, 0x41, 0x0c, 0x80, 0xb1, 0x02, 0xff, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21}},
+	}
+	for _, c := range cases {
+		err := c.udpHdr.CalcChecksum(c.header)
+		if err != nil {
+			t.Errorf("Something went wrong in calculating checksum UDP packet: case %v, error: %v\n", c, err)
+		}
+		b, err := c.udpHdr.Marschal()
+		if err != nil {
+			t.Errorf("Something went wrong in marshalling UDP packet: case %v, result: %x, error: %v\n", c, b, err)
+		}
+
+		fullIP, err := Marschal(*c.header, b)
+		if err != nil {
+			t.Errorf("Something went wrong in marshalling IP packet: case %v, result: %x, error: %v\n", c, b, err)
+		}
+
+		if c.result != nil {
+			if len(c.result) != len(fullIP) {
+				t.Errorf("Did not correspond to expected result, size error!\n")
+			}
+			for i, x := range fullIP {
+				if c.result[i] != x {
+					t.Errorf("Compare result:: content error: index: %v, expected: %x, got: %x!\n", i, c.result[i], x)
+				}
+			}
+		}
+		fmt.Printf("Succesful:: Case: %v, result: %x\n", c, fullIP)
+
+	}
+}
