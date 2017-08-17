@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"golang.org/x/net/ipv6"
 )
@@ -35,7 +36,7 @@ import (
 } */
 
 //TestSndPacket Try to receive a packet via udp-slip connection
-func TestSndPacket(t *testing.T) {
+/* func TestSndPacket(t *testing.T) {
 	payload := []byte{0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21}
 	ipHdr := &ipv6.Header{
 		Version:      6,
@@ -92,7 +93,7 @@ func TestSndPacket(t *testing.T) {
 		}
 		fmt.Printf("Written: n: %v, input: %x\n", n, c.input)
 	}
-}
+} */
 
 //Test closing the connection
 func TestClose(t *testing.T) {
@@ -121,32 +122,91 @@ func TestClose(t *testing.T) {
 }
 
 //TestContinuous Test the continuous working of connection to udp-slip device
-/* func TestContinuous(t *testing.T) {
-	cases := []struct {
-	}{
-		{},
+func TestContinuous(t *testing.T) {
+	//Construct package to write
+	payload := []byte{0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21, 0x0a} //, 0x54, 0x45, 0x53, 0x54
+	ipHdr := &ipv6.Header{
+		Version:      6,
+		TrafficClass: 0,
+		FlowLabel:    5,
+		PayloadLen:   len(payload) + UdpHeaderLen,
+		NextHeader:   17,
+		HopLimit:     63,
+		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Dst:          net.ParseIP("aaaa::1"),
 	}
-	for _, c := range cases {
-		config := Config{
-			DebugLevel: DebugAll,
-			PortName:   "/dev/ttyUSB1",
-		}
-		buf := make([]byte, 200)
-		reader, err := Open(config)
-		defer reader.Close()
 
-		if err != nil {
-			t.Errorf("Did not exit Open properly %v\n", err)
-		}
-		for {
-			n, err := reader.Read(buf)
-			if err != nil {
-				t.Errorf("Did not exit Read properly %v, %v", err, c)
-			}
-			fmt.Printf("Packet: %v\n", string(buf[:n]))
-		}
+	udpHdr := &UDPHeader{
+		DstPort: 0xb25f,
+		SrcPort: 0x1633,
+		Length:  uint16(len(payload) + UdpHeaderLen),
+		Chksum:  0,
+		Payload: payload,
 	}
-} */
+
+	err := udpHdr.CalcChecksum(ipHdr)
+	if err != nil {
+		t.Errorf("Something went wrong in calculating checksum UDP packet: ipHdr %v, udpHdr: %v, error: %v\n", ipHdr, udpHdr, err)
+	}
+	udpb, err := udpHdr.Marschal()
+	if err != nil {
+		t.Errorf("Something went wrong in marshalling UDP packet: ipHdr %v, udpHdr: %v, error: %v\n", ipHdr, udpHdr, err)
+	}
+
+	fullIP, err := Marschal(*ipHdr, udpb)
+	if err != nil {
+		t.Errorf("Something went wrong in marshalling IP packet: ipHdr %v, udpbytes: %v, error: %v\n", ipHdr, udpb, err)
+	}
+
+	//Startup interface
+	config := Config{
+		DebugLevel: DebugAll,
+		PortName:   "/dev/ttyUSB1",
+	}
+	buf := make([]byte, 200)
+	readwriteclose, err := Open(config)
+	defer readwriteclose.Close()
+
+	if err != nil {
+		t.Errorf("Did not exit Open properly %v\n", err)
+	}
+
+	command := "W"
+	duration := 2 * time.Second
+	go func() {
+		buf := make([]byte, 120)
+		for {
+			readwriteclose.Read(buf)
+		}
+	}()
+	//Looping
+	for {
+
+		time.Sleep(duration)
+
+		switch command {
+		case "R":
+			n, err := readwriteclose.Read(buf)
+			if err != nil {
+				t.Errorf("Did not exit Read properly %v\n", err)
+			}
+			fmt.Printf("Packet: %x\n", string(buf[:n]))
+
+		case "W":
+			n, err := readwriteclose.Write(fullIP)
+			if err != nil {
+				t.Errorf("Did not exit Write properly %v, input: %x\n", err, fullIP)
+			}
+			fmt.Printf("Packet: %x\n", string(fullIP[:n]))
+		case "C":
+			readwriteclose.Close()
+			return
+		default:
+			//fmt.Printf("-> Did not understand command: %v\n", command)
+		}
+
+	}
+}
 
 //TestIPPacket Test the marshalling of IP packet with fixed payload
 func TestIPPacket(t *testing.T) {
