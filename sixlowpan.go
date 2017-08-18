@@ -86,7 +86,7 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 				if len(packet) < (ipv6.HeaderLen + UdpHeaderLen) {
 					log.Fatalln("Packet to small to fit ipv6 + udp header!!")
 				}
-				fmt.Printf("SLIP Packet payload: %v, isPrefix: %v\n", packet[ipv6.HeaderLen+UdpHeaderLen:], isPrefix)
+				fmt.Printf("SLIP Packet payload: %x, isPrefix: %v\n", packet[ipv6.HeaderLen+UdpHeaderLen:], isPrefix)
 				header, err := ipv6.ParseHeader(packet[:ipv6.HeaderLen])
 				if err != nil {
 					fmt.Printf("Error in processing ipv6 header\n")
