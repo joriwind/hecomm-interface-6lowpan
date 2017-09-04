@@ -3,6 +3,7 @@ package sixlowpan
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 	"net"
 
 	"golang.org/x/net/ipv6"
@@ -81,6 +82,10 @@ func UnmarshalUDP(buf []byte) (h UDPHeader, err error) {
 	if err != nil {
 		return h, err
 	}
+	if len(h.Payload) != (int(h.Length) - int(UdpHeaderLen)) {
+		log.Printf("Payload length does not match length described in UDP header")
+	}
+	//TODO:?Check if checksum is correct?
 	return h, err
 }
 
