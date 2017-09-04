@@ -99,6 +99,7 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 			}
 			//copy(buf, packet[ipv6.HeaderLen+UdpHeaderLen:])
 			//return len(packet) - (ipv6.HeaderLen + UdpHeaderLen), nil
+			//Return full IP packet in bytes
 			copy(buf, packet[:])
 			return len(packet), nil
 		}
