@@ -97,8 +97,10 @@ func (com SLIP) Read(buf []byte) (n int, err error) {
 			if len(buf) < len(packet) {
 				return 0, fmt.Errorf("Buf to small")
 			}
-			copy(buf, packet[ipv6.HeaderLen+UdpHeaderLen:])
-			return len(packet) - (ipv6.HeaderLen + UdpHeaderLen), nil
+			//copy(buf, packet[ipv6.HeaderLen+UdpHeaderLen:])
+			//return len(packet) - (ipv6.HeaderLen + UdpHeaderLen), nil
+			copy(buf, packet[:])
+			return len(packet), nil
 		}
 	}
 }
