@@ -58,6 +58,32 @@ func (h UDPHeader) Marschal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+//UnmarshalUDP Unmarshal the byte slice into UDP header
+func UnmarshalUDP(buf []byte) (h UDPHeader, err error) {
+	b := bytes.NewBuffer(buf)
+	err = binary.Read(b, binary.BigEndian, h.SrcPort)
+	if err != nil {
+		return h, err
+	}
+	err = binary.Read(b, binary.BigEndian, h.DstPort)
+	if err != nil {
+		return h, err
+	}
+	err = binary.Read(b, binary.BigEndian, h.Length)
+	if err != nil {
+		return h, err
+	}
+	err = binary.Read(b, binary.BigEndian, h.Chksum)
+	if err != nil {
+		return h, err
+	}
+	err = binary.Read(b, binary.BigEndian, h.Payload)
+	if err != nil {
+		return h, err
+	}
+	return h, err
+}
+
 //CalcChecksum Calculate the checksum of UDP header, providing the ip header information for pseudoheader
 func (h *UDPHeader) CalcChecksum(ip *ipv6.Header) error {
 	h.Chksum = 0
