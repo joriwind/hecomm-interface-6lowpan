@@ -1,6 +1,7 @@
 package sixlowpan
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"testing"
@@ -232,6 +233,21 @@ func TestIPPacket(t *testing.T) {
 		c.header.Src = c.src
 		c.header.PayloadLen = len(c.payload)
 		b, err := Marschal(*c.header, c.payload)
+		ipheader, err := ipv6.ParseHeader(b[:ipv6.HeaderLen])
+		if err != nil {
+			fmt.Printf("Error in processing ipv6 header\n")
+			t.Errorf("IPV6 parse failed: %v\n", err)
+
+		}
+		fmt.Printf("Parsed IP header: %v\n", ipheader)
+		udpheader, err := UnmarshalUDP(b[ipv6.HeaderLen:])
+		if err != nil {
+			t.Errorf("UDP parse failed: %v\n", err)
+		}
+		fmt.Printf("Parsed UDP header: %v\n", udpheader)
+		if !bytes.Equal(udpheader.Payload, c.payload) {
+			t.Errorf("Test case payload does not match: case: %v, generated: %v\n", c.payload, udpheader.Payload)
+		}
 		if err != nil {
 			t.Errorf("Something went wrong in marshalling IP packet: case %v, result: %x, error: %v\n", c, b, err)
 		}
