@@ -3,7 +3,7 @@ package sixlowpan
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
+	"fmt"
 	"net"
 
 	"golang.org/x/net/ipv6"
@@ -30,6 +30,9 @@ type udppseudoHeader struct {
 func (h UDPHeader) Marschal() ([]byte, error) {
 	//We know the length of the entire UDPheader + payload, h.Lenght should be the comprise lenght of hdr & payload
 	//Size the internal write buffer to h.Length via buf & setting the capacity (=h.Length) but not the length (=0)
+	if h.Length < UdpHeaderLen {
+		return nil, fmt.Errorf("Length in UDPHeader too small: got: %v, expected: %v", h.Length, uint16(len(h.Payload))+UdpHeaderLen)
+	}
 	buf := make([]byte, 0, h.Length)
 	b := bytes.NewBuffer(buf)
 
@@ -62,35 +65,36 @@ func (h UDPHeader) Marschal() ([]byte, error) {
 //UnmarshalUDP Unmarshal the byte slice into UDP header
 func UnmarshalUDP(buf []byte) (h UDPHeader, err error) {
 	b := bytes.NewBuffer(buf)
-	err = binary.Read(b, binary.BigEndian, h.SrcPort)
+	err = binary.Read(b, binary.BigEndian, &h.SrcPort)
 	if err != nil {
 		return h, err
 	}
-	err = binary.Read(b, binary.BigEndian, h.DstPort)
+	err = binary.Read(b, binary.BigEndian, &h.DstPort)
 	if err != nil {
 		return h, err
 	}
-	err = binary.Read(b, binary.BigEndian, h.Length)
+	err = binary.Read(b, binary.BigEndian, &h.Length)
 	if err != nil {
 		return h, err
 	}
-	err = binary.Read(b, binary.BigEndian, h.Chksum)
+	err = binary.Read(b, binary.BigEndian, &h.Chksum)
 	if err != nil {
 		return h, err
 	}
-	err = binary.Read(b, binary.BigEndian, h.Payload)
+	h.Payload = b.Bytes()
 	if err != nil {
 		return h, err
 	}
 	if len(h.Payload) != (int(h.Length) - int(UdpHeaderLen)) {
-		log.Printf("Payload length does not match length described in UDP header")
+		return h, fmt.Errorf("Payload length does not match length described in UDP header: packet: %v", h)
+
 	}
 	//TODO:?Check if checksum is correct?
 	return h, err
 }
 
 //CalcChecksum Calculate the checksum of UDP header, providing the ip header information for pseudoheader
-func (h *UDPHeader) CalcChecksum(ip *ipv6.Header) error {
+func (h *UDPHeader) CalcChecksum(ip ipv6.Header) error {
 	h.Chksum = 0
 	phdr := udppseudoHeader{
 		SrcAddress: ip.Src.To16(),
