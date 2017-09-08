@@ -126,7 +126,7 @@ func TestClose(t *testing.T) {
 func TestContinuous(t *testing.T) {
 	//Construct package to write
 	payload := []byte{0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21, 0x0a} //, 0x54, 0x45, 0x53, 0x54
-	ipHdr := &ipv6.Header{
+	ipHdr := ipv6.Header{
 		Version:      6,
 		TrafficClass: 0,
 		FlowLabel:    5,
@@ -154,7 +154,7 @@ func TestContinuous(t *testing.T) {
 		t.Errorf("Something went wrong in marshalling UDP packet: ipHdr %v, udpHdr: %v, error: %v\n", ipHdr, udpHdr, err)
 	}
 
-	fullIP, err := Marschal(*ipHdr, udpb)
+	fullIP, err := Marschal(ipHdr, udpb)
 	if err != nil {
 		t.Errorf("Something went wrong in marshalling IP packet: ipHdr %v, udpbytes: %v, error: %v\n", ipHdr, udpb, err)
 	}
@@ -211,45 +211,66 @@ func TestContinuous(t *testing.T) {
 
 //TestIPPacket Test the marshalling of IP packet with fixed payload
 func TestIPPacket(t *testing.T) {
-	h := &ipv6.Header{
+	h := ipv6.Header{
 		Version:      6,
 		TrafficClass: 0,
 		FlowLabel:    0,
 		PayloadLen:   0,
 		NextHeader:   17,
 		HopLimit:     255,
+		Dst:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Src:          net.ParseIP("aaaa::1"),
 	}
 
 	cases := []struct {
-		header  *ipv6.Header
-		dst     net.IP
-		src     net.IP
-		payload []byte
+		ipheader  ipv6.Header
+		udppacket UDPHeader
 	}{
-		{header: h, dst: net.ParseIP("aaaa::c30c:0:0:7"), src: net.ParseIP("aaaa::1"), payload: []byte{0x0, 0x0, 0x16, 0x33, 0x0, 0x0A, 0x0, 0x0, 0x48, 0x49}},
+		{ipheader: h,
+			udppacket: UDPHeader{SrcPort: 1520, DstPort: 5683, Length: 0, Chksum: 0, Payload: []byte{0x48, 0x49, 0x0a}}},
 	}
 	for _, c := range cases {
-		c.header.Dst = c.dst
-		c.header.Src = c.src
-		c.header.PayloadLen = len(c.payload)
-		b, err := Marschal(*c.header, c.payload)
+		c.udppacket.Length = uint16(len(c.udppacket.Payload)) + UdpHeaderLen
+		c.ipheader.PayloadLen = int(c.udppacket.Length)
+		c.udppacket.CalcChecksum(c.ipheader)
+
+		ipPayload, err := c.udppacket.Marschal()
+		if err != nil {
+			t.Errorf("Unable to marshal UDP packet: %v\n", err)
+			return
+		}
+		b, err := Marschal(c.ipheader, ipPayload)
+
 		ipheader, err := ipv6.ParseHeader(b[:ipv6.HeaderLen])
 		if err != nil {
 			fmt.Printf("Error in processing ipv6 header\n")
 			t.Errorf("IPV6 parse failed: %v\n", err)
+			return
 
 		}
 		fmt.Printf("Parsed IP header: %v\n", ipheader)
 		udpheader, err := UnmarshalUDP(b[ipv6.HeaderLen:])
 		if err != nil {
 			t.Errorf("UDP parse failed: %v\n", err)
+			return
 		}
 		fmt.Printf("Parsed UDP header: %v\n", udpheader)
-		if !bytes.Equal(udpheader.Payload, c.payload) {
-			t.Errorf("Test case payload does not match: case: %v, generated: %v\n", c.payload, udpheader.Payload)
+		if !bytes.Equal(udpheader.Payload, c.udppacket.Payload) {
+			t.Errorf("Test case payload does not match: case: %v, generated: %v\n", c.udppacket.Payload, udpheader.Payload)
+			return
+		}
+		//Checking checksum
+		err = udpheader.CalcChecksum(*ipheader)
+		if err != nil {
+			t.Errorf("Could not calculate checksum: udp: %v, ip: %v", udpheader, ipheader)
+		}
+		if udpheader.Chksum != c.udppacket.Chksum {
+			t.Errorf("Test case checksum does not match: expected: %v, generated: %v\n", c.udppacket.Chksum, udpheader.Chksum)
+			return
 		}
 		if err != nil {
 			t.Errorf("Something went wrong in marshalling IP packet: case %v, result: %x, error: %v\n", c, b, err)
+			return
 		}
 		//fmt.Printf("Case: %v, result: %x\n", c, b)
 
@@ -258,7 +279,7 @@ func TestIPPacket(t *testing.T) {
 
 //TestUDPPacket Test the Marshalling of UDP packet
 func TestUDPPacket(t *testing.T) {
-	h := &ipv6.Header{
+	h := ipv6.Header{
 		Version:      6,
 		TrafficClass: 0,
 		FlowLabel:    0,
@@ -268,7 +289,7 @@ func TestUDPPacket(t *testing.T) {
 		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
 		Dst:          net.ParseIP("aaaa::1"),
 	}
-	uHdr := &UDPHeader{
+	uHdr := UDPHeader{
 		DstPort: 0xb25f,
 		SrcPort: 0x1633,
 		Length:  0x001e,
@@ -277,8 +298,8 @@ func TestUDPPacket(t *testing.T) {
 	}
 
 	cases := []struct {
-		header *ipv6.Header
-		udpHdr *UDPHeader
+		header ipv6.Header
+		udpHdr UDPHeader
 		result []byte
 	}{
 		{
@@ -313,7 +334,7 @@ func TestUDPPacket(t *testing.T) {
 
 //TestIpUDPPacket Test the full range of UDP to IP to bytes working
 func TestIPUDPPacket(t *testing.T) {
-	h := &ipv6.Header{
+	h := ipv6.Header{
 		Version:      6,
 		TrafficClass: 0,
 		FlowLabel:    0,
@@ -323,7 +344,7 @@ func TestIPUDPPacket(t *testing.T) {
 		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
 		Dst:          net.ParseIP("aaaa::1"),
 	}
-	uHdr := &UDPHeader{
+	uHdr := UDPHeader{
 		DstPort: 0xb25f,
 		SrcPort: 0x1633,
 		Length:  0x001e,
@@ -332,8 +353,8 @@ func TestIPUDPPacket(t *testing.T) {
 	}
 
 	cases := []struct {
-		header *ipv6.Header
-		udpHdr *UDPHeader
+		header ipv6.Header
+		udpHdr UDPHeader
 		result []byte
 	}{
 		{
@@ -356,7 +377,7 @@ func TestIPUDPPacket(t *testing.T) {
 			t.Errorf("Something went wrong in marshalling UDP packet: case %v, result: %x, error: %v\n", c, b, err)
 		}
 
-		fullIP, err := Marschal(*c.header, b)
+		fullIP, err := Marschal(c.header, b)
 		if err != nil {
 			t.Errorf("Something went wrong in marshalling IP packet: case %v, result: %x, error: %v\n", c, b, err)
 		}
